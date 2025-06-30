@@ -1,0 +1,546 @@
+{
+  "name": "url_scanning",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        460,
+        660
+      ],
+      "id": "1d382b94-08b7-438d-ab91-59c857be7cf6",
+      "name": "URL to Scan Loop"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1f76d19-098a-476f-904b-31bbf5d7f032",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "d46ba328-6849-44c6-9067-d31f8b139f8a",
+              "name": "url",
+              "value": "={{ $json.url }}",
+              "type": "string"
+            },
+            {
+              "id": "cb4d1e4a-268a-4f72-bd44-a02720941294",
+              "name": "screenshot_name",
+              "value": "={{ $json.id }}-{{ $json.url.replace(/^https?:\\/\\//, '').split('/')[0].replace(/\\./g, '-') + '.jpeg' }}",
+              "type": "string"
+            },
+            {
+              "id": "883f62fa-f408-44f9-91ce-812aa1953c12",
+              "name": "scan_type",
+              "value": "={{ $json.scan_type }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        740,
+        400
+      ],
+      "id": "ba9d8935-9c5e-472e-b3e0-5a58b99724e5",
+      "name": "URL Metadata"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('URL Metadata').item.json.scan_type }}",
+                    "rightValue": "playwright",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "c2aa7da8-5275-4c88-ac79-6910705387ea"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Playwright MCP"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "aa3e3c8d-e0fa-4da0-80ac-91f1893f5823",
+                    "leftValue": "={{ $('URL Metadata').item.json.scan_type }}",
+                    "rightValue": "status_code",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Status Code"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        400
+      ],
+      "id": "38a774c1-5a92-46f7-a542-65e7bca1dc9e",
+      "name": "Switch Scan Type"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        660
+      ],
+      "id": "f524c22e-70c9-4d79-98de-6836bb793cb4",
+      "name": "Loop Wait",
+      "webhookId": "b3c8d39e-6af5-4053-9670-b3771df9fcbb"
+    },
+    {
+      "parameters": {
+        "method": "HEAD",
+        "url": "={{ $('URL Metadata').item.json.url }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 15
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        660
+      ],
+      "id": "7feed589-2e97-4a79-b018-54e168e8953c",
+      "name": "URL Header",
+      "onError": "continueErrorOutput",
+      "notes": "Catch fundamental network errors (DNS resolution failures, timeouts, connection refused) before they can cause the more complex AI Agent or Playwright tool to fail."
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "WBIT20AwFdpylPXR",
+          "mode": "list",
+          "cachedResultName": "url_scanning_playwright"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('URL Metadata').item.json.id }}",
+            "url": "={{ $('URL Metadata').item.json.url }}",
+            "screenshot_name": "={{ $('URL Metadata').item.json.screenshot_name }}",
+            "status_code": "={{ $('URL Header').item.json.statusCode }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "screenshot_name",
+              "displayName": "screenshot_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "status_code",
+              "displayName": "status_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1380,
+        160
+      ],
+      "id": "7e28617b-5968-4992-8ec4-c1ba35bb62c2",
+      "name": "Playwright Scan Module",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "url_scan",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('URL Metadata').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_scan_time",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "status_code",
+              "fieldValue": "={{ $('URL Header').item.json.statusCode }}"
+            },
+            {
+              "fieldId": "scan_status",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        400
+      ],
+      "id": "83e11890-a871-45ae-ad4c-1c45b95b37b3",
+      "name": "Update as Status Code Scan Success",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "url_scan",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('URL Metadata').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_scan_time",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "agent_summary",
+              "fieldValue": "=An error occured. {{ $json.error && $json.error.message ? JSON.stringify($json.error.message) : ''}}"
+            },
+            {
+              "fieldId": "status_code",
+              "fieldValue": "={{ $json.error.code }}"
+            },
+            {
+              "fieldId": "scan_status",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        660
+      ],
+      "id": "a354f6f7-39bf-4130-83c2-f6a100f60039",
+      "name": "Update as Scan Error",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        460,
+        160
+      ],
+      "id": "6b6ca146-43a7-4d74-8e2e-00f89b3be2cb",
+      "name": "Scan Webhook",
+      "webhookId": "b440a37a-6726-4e02-8837-f378f59d59a2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n    \"success\": true,\n    \"message\": \"Scan completed successfully\",\n    \"queuedCount\": 2\n  }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        740,
+        160
+      ],
+      "id": "b8625b49-c249-4914-819f-ae694a66aac6",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        460,
+        400
+      ],
+      "id": "4ae302f2-08f5-4f97-a5d7-3341125ca40e",
+      "name": "Split Out Items Sent in the Webhook's Body"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "URL to Scan Loop": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "URL Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Metadata": {
+      "main": [
+        [
+          {
+            "node": "URL Header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Scan Type": {
+      "main": [
+        [
+          {
+            "node": "Playwright Scan Module",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update as Status Code Scan Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Wait": {
+      "main": [
+        [
+          {
+            "node": "URL to Scan Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Header": {
+      "main": [
+        [
+          {
+            "node": "Switch Scan Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update as Scan Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playwright Scan Module": {
+      "main": [
+        [
+          {
+            "node": "Loop Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update as Status Code Scan Success": {
+      "main": [
+        [
+          {
+            "node": "Loop Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update as Scan Error": {
+      "main": [
+        [
+          {
+            "node": "Loop Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Webhook": {
+      "main": [
+        [
+          {
+            "node": "Split Out Items Sent in the Webhook's Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Items Sent in the Webhook's Body": {
+      "main": [
+        [
+          {
+            "node": "URL to Scan Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bde846da-31e7-43ce-9986-be5815f5a4b5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98e897a176d6aa8f9ebfef8f0306eab4fec5c697c6120f66479530a2b348cfea"
+  },
+  "id": "JHVlGEQuVPkzZWv5",
+  "tags": [
+    {
+      "createdAt": "2025-06-25T12:03:51.069Z",
+      "updatedAt": "2025-06-25T12:03:51.069Z",
+      "id": "2XHVZkRb5tpvTpTx",
+      "name": "webhook"
+    }
+  ]
+}

@@ -1,0 +1,460 @@
+{
+  "name": "url_ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Enhanced URL Extraction with trailing slash normalization\n// Access the object containing binary data for the CURRENT item\nconst currentItem = $input.item;\nlet fileDataObject = null;\n\n// Get the source filename from the input item of the loop\nconst sourceFilename = currentItem.json.fileName;\n\nif (currentItem && currentItem.binary && currentItem.binary.urls) {\n    fileDataObject = currentItem.binary.urls;\n} else {\n    console.error(\"Failed to access binary data object. Input or binary property 'urls' missing.\");\n    return [{ json: { error: 'File data object could not be accessed.' } }];\n}\n\nif (!fileDataObject.data || typeof fileDataObject.data !== 'string') {\n     console.error(\"Binary data object does not contain a 'data' property with a string.\");\n     return [{ json: { error: 'File data object is not in the expected format (missing Base64 data).' } }];\n}\n\nconst base64Content = fileDataObject.data;\nlet fileContent;\ntry {\n    fileContent = Buffer.from(base64Content, 'base64').toString('utf8');\n} catch (error) {\n    console.error(\"Error decoding Base64 data:\", error);\n    return [{ json: { error: 'Failed to decode file data from Base64.' } }];\n}\n\n// --- Regex to extract URLs ---\nconst urlRegex = /https?:\\/\\/[^\\s\"'<>`]+/g;\nconst rawUrls = fileContent.match(urlRegex);\n\nif (!rawUrls || rawUrls.length === 0) {\n    console.log(\"No URLs found in the file by the regex.\");\n    return [{ json: { message: 'No URLs found in the file.' } }];\n}\n\n// --- URL CLEANUP FUNCTIONS ---\nconst cleanUrlEnd = (url) => {\n    const badEndChars = ['.', ',', ';', ')', ']', '}', '\"', \"'\"];\n    let cleanedUrl = url;\n    let wasCleaned = true;\n\n    while(wasCleaned) {\n        wasCleaned = false;\n        const lastChar = cleanedUrl.slice(-1);\n        if (badEndChars.includes(lastChar)) {\n            cleanedUrl = cleanedUrl.slice(0, -1);\n            wasCleaned = true;\n        }\n    }\n    return cleanedUrl;\n};\n\n// Function to normalize trailing slashes\nconst normalizeTrailingSlash = (url) => {\n    try {\n        const urlObj = new URL(url);\n        \n        // Check if URL has only domain (no path, query, or fragment)\n        // pathname === '/' means it's just the root path\n        const hasOnlyDomain = urlObj.pathname === '/' && \n                              !urlObj.search && \n                              !urlObj.hash;\n        \n        if (hasOnlyDomain) {\n            // Remove trailing slash for domain-only URLs\n            return url.replace(/\\/$/, '');\n        }\n        \n        // For URLs with actual paths, keep them as-is\n        // This preserves important slashes in paths like /api/users/\n        return url;\n        \n    } catch (error) {\n        // If URL parsing fails, return original URL\n        console.warn(`Failed to parse URL for normalization: ${url}`, error);\n        return url;\n    }\n};\n\n// BETTER approach: Check if URL ends with just a domain + slash\nconst normalizeTrailingSlashSimple = (url) => {\n    // Remove trailing slash only if the URL ends with domain/\n    // This regex matches: protocol://domain.tld/ (with no additional path)\n    return url.replace(/^(https?:\\/\\/[^\\/]+)\\/$/, '$1');\n};\n\n// --- PROCESS URLs ---\n// First clean the URL endings\nconst cleanedUrls = rawUrls.map(cleanUrlEnd);\n\n// Then normalize trailing slashes\nconst normalizedUrls = cleanedUrls.map(normalizeTrailingSlashSimple);\n\n// Remove duplicates and sort\nconst processedUrls = Array.from(new Set(normalizedUrls));\nprocessedUrls.sort();\n\nconsole.log(`Found ${rawUrls.length} raw URLs, processed to ${processedUrls.length} unique normalized URLs`);\n\n// Format the output for subsequent nodes\nconst outputItems = processedUrls.map(url => {\n    return {\n        json: {\n            url: url,\n            source_filename: sourceFilename\n        }\n    };\n});\n\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        0
+      ],
+      "id": "92a4b239-5a80-4621-baae-80d0f0381131",
+      "name": "URL Extraction"
+    },
+    {
+      "parameters": {
+        "tableId": "url_scan",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "url",
+              "fieldValue": "={{ $json.url }}"
+            },
+            {
+              "fieldId": "domain",
+              "fieldValue": "={{ $json.url.replace(/^https?:\\/\\//, '').split('/')[0] }}"
+            },
+            {
+              "fieldId": "tld",
+              "fieldValue": "={{ '.' + $json.url.replace(/^https?:\\/\\//, '').split('/')[0].split('.').pop() }}"
+            },
+            {
+              "fieldId": "source_filename",
+              "fieldValue": "={{ $json.source_filename }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        940,
+        240
+      ],
+      "id": "591da41e-a2ad-4061-9906-8926ccb83cb6",
+      "name": "Add New URLs to Supabase",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "ZMwGqOUUUclaeZwQ",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "formTitle": "URL Ingestion Portal",
+        "formDescription": "Upload one or more files (.txt, .csv, .json, .html, .xml), up to 1MB, containing URLs. The system will extract all unique URLs, check for duplicates, and ingest only the new ones.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "URL's file",
+              "fieldType": "file",
+              "acceptFileTypes": ".csv, .json, .txt, .html, .xml",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Start Ingestion",
+          "path": "upload",
+          "ignoreBots": true,
+          "customCss": ":root {\n\t--font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 14px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 24px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Dark Theme Colors - Matching Dashboard */\n\t--color-background: hsl(224, 71%, 4%);\n\t--color-test-notice-text: hsl(38, 92%, 60%);\n\t--color-test-notice-bg: hsla(38, 92%, 50%, 0.1);\n\t--color-test-notice-border: hsla(38, 92%, 50%, 0.2);\n\t--color-card-bg: hsl(224, 71%, 4%);\n\t--color-card-border: hsl(216, 34%, 17%);\n\t--color-card-shadow: rgba(0, 0, 0, 0.3);\n\t--color-link: hsl(217, 91%, 60%);\n\t--color-header: hsl(213, 31%, 91%);\n\t--color-label: hsl(213, 31%, 91%);\n\t--color-input-border: hsl(216, 34%, 17%);\n\t--color-input-text: hsl(213, 31%, 91%);\n\t--color-input-bg: hsl(216, 34%, 17%);\n\t--color-focus-border: hsl(217, 91%, 60%);\n\t--color-submit-btn-bg: hsl(210, 40%, 98%);\n\t--color-submit-btn-text: hsl(222, 84%, 5%);\n\t--color-error: hsl(0, 84%, 60%);\n\t--color-required: hsl(0, 84%, 60%);\n\t--color-clear-button-bg: hsl(215, 20%, 65%);\n\t--color-html-text: hsl(213, 31%, 91%);\n\t--color-html-link: hsl(217, 91%, 60%);\n\t--color-header-subtext: hsl(215, 20%, 65%);\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 448px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.6;\n}\n\n/* Override body and container backgrounds */\nbody {\n\tbackground: var(--color-background) !important;\n\tcolor: var(--color-html-text) !important;\n\tfont-family: var(--font-family) !important;\n}\n\n/* Form container styling */\n.form-container {\n\tbackground: var(--color-background) !important;\n}\n\n/* Card styling */\n.card, .form-card {\n\tbackground: var(--color-card-bg) !important;\n\tborder: 1px solid var(--color-card-border) !important;\n\tbox-shadow: var(--box-shadow-card) !important;\n\tcolor: var(--color-html-text) !important;\n}\n\n/* Headers */\nh1, h2, h3, h4, h5, h6, .form-title {\n\tcolor: var(--color-header) !important;\n}\n\n/* Form description/subtitle */\n.form-description, .form-subtitle, p {\n\tcolor: var(--color-header-subtext) !important;\n}\n\n/* Labels */\nlabel, .form-label {\n\tcolor: var(--color-label) !important;\n\tfont-weight: var(--font-weight-normal) !important;\n}\n\n/* Required asterisk */\n.required, .required-indicator {\n\tcolor: var(--color-required) !important;\n}\n\n/* Input fields */\ninput[type=\"text\"], \ninput[type=\"email\"], \ninput[type=\"password\"], \ninput[type=\"file\"], \ntextarea, \nselect,\n.form-input {\n\tbackground: var(--color-input-bg) !important;\n\tborder: 1px solid var(--color-input-border) !important;\n\tcolor: var(--color-input-text) !important;\n\tborder-radius: var(--border-radius-input) !important;\n\tpadding: var(--padding-form-input) !important;\n\ttransition: all 0.2s ease !important;\n}\n\n/* Input focus states */\ninput[type=\"text\"]:focus, \ninput[type=\"email\"]:focus, \ninput[type=\"password\"]:focus, \ninput[type=\"file\"]:focus, \ntextarea:focus, \nselect:focus,\n.form-input:focus {\n\tborder-color: var(--color-focus-border) !important;\n\tbox-shadow: 0 0 0 2px hsla(217, 91%, 60%, 0.1) !important;\n\toutline: none !important;\n}\n\n/* Placeholder text */\ninput::placeholder, \ntextarea::placeholder {\n\tcolor: var(--color-header-subtext) !important;\n\topacity: var(--opacity-placeholder) !important;\n}\n\n/* File input styling */\ninput[type=\"file\"] {\n\tpadding: 8px var(--padding-form-input) !important;\n}\n\n/* Submit button */\n.submit-button, \nbutton[type=\"submit\"],\n.form-submit {\n\tbackground: var(--color-submit-btn-bg) !important;\n\tcolor: var(--color-submit-btn-text) !important;\n\tborder: none !important;\n\tborder-radius: var(--border-radius-input) !important;\n\theight: var(--submit-btn-height) !important;\n\tfont-weight: var(--font-weight-bold) !important;\n\ttransition: all 0.2s ease !important;\n\tcursor: pointer !important;\n}\n\n.submit-button:hover, \nbutton[type=\"submit\"]:hover,\n.form-submit:hover {\n\tbackground: hsl(210, 40%, 95%) !important;\n\ttransform: translateY(-1px) !important;\n\tbox-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;\n}\n\n.submit-button:active, \nbutton[type=\"submit\"]:active,\n.form-submit:active {\n\ttransform: translateY(0) !important;\n}\n\n/* Test notice banner */\n.test-notice, .notice-banner {\n\tbackground: var(--color-test-notice-bg) !important;\n\tborder: 1px solid var(--color-test-notice-border) !important;\n\tcolor: var(--color-test-notice-text) !important;\n\tborder-radius: var(--border-radius-card) !important;\n}\n\n/* Links */\na {\n\tcolor: var(--color-link) !important;\n\ttext-decoration: none !important;\n}\n\na:hover {\n\tcolor: hsl(217, 91%, 70%) !important;\n\ttext-decoration: underline !important;\n}\n\n/* Error messages */\n.error, .error-message {\n\tcolor: var(--color-error) !important;\n}\n\n/* Clear/reset buttons */\n.clear-button, .reset-button {\n\tbackground: var(--color-clear-button-bg) !important;\n\tcolor: var(--color-html-text) !important;\n\tborder: 1px solid var(--color-input-border) !important;\n\tborder-radius: var(--border-radius-clear-btn) !important;\n}\n\n.clear-button:hover, .reset-button:hover {\n\tbackground: hsl(215, 20%, 50%) !important;\n}\n\n/* Checkbox styling */\ninput[type=\"checkbox\"] {\n\taccent-color: var(--color-focus-border) !important;\n\twidth: var(--checkbox-size) !important;\n\theight: var(--checkbox-size) !important;\n}\n\n/* Select dropdown styling */\nselect {\n\tbackground-image: url(\"data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E\") !important;\n\tbackground-position: right var(--padding-form-input) center !important;\n\tbackground-repeat: no-repeat !important;\n\tbackground-size: 16px !important;\n\tappearance: none !important;\n\tpadding-right: calc(var(--padding-form-input) * 2.5) !important;\n}\n\n/* Form sections and dividers */\n.form-section {\n\tborder-bottom: 1px solid var(--color-input-border) !important;\n}\n\n/* Loading states */\n.loading, .spinner {\n\tborder-color: var(--color-input-border) !important;\n\tborder-top-color: var(--color-focus-border) !important;\n}\n\n/* Focus outline for accessibility */\n*:focus-visible {\n\toutline: 2px solid var(--color-focus-border) !important;\n\toutline-offset: 2px !important;\n}\n\n/* Responsive adjustments */\n@media (max-width: 768px) {\n\t:root {\n\t\t--container-width: 100% !important;\n\t\t--padding-card: 16px !important;\n\t}\n\t\n\t.card, .form-card {\n\t\tmargin: 8px !important;\n\t\tborder-radius: var(--border-radius-card) !important;\n\t}\n}"
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        100,
+        -460
+      ],
+      "id": "33f002c5-5591-4a7a-be37-11f1e7534bf9",
+      "name": "File Upload",
+      "webhookId": "55b2e6e6-a72f-41ca-85e9-8961c865a83b"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        480
+      ],
+      "id": "5a975eda-7a45-4b58-b1c7-76d397e71297",
+      "name": "Wait",
+      "webhookId": "1d917aaa-6572-49cd-9f9b-e649f93f96f7"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        100,
+        0
+      ],
+      "id": "2e47cbce-27f8-48fd-9b19-fcd93349e517",
+      "name": "Loop Over URL Files",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                urls: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -240
+      ],
+      "id": "f6bff75d-baf1-4e3d-b31a-0fa92730d0b8",
+      "name": "Split Uploaded URL Files",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "url"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        600,
+        0
+      ],
+      "id": "0c4635da-acb5-47ea-9f6e-dc302e2ed9a0",
+      "name": "Aggregate URLs"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/rest/v1/rpc/check_existing_urls",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"urls_to_check\": {{ JSON.stringify ($json.url) }} \n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        0
+      ],
+      "id": "b71a4bab-02e9-4a56-83f6-40276dbe8487",
+      "name": "Supabase RPC Check Existing URLs",
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "advanced": true,
+        "mergeByFields": {
+          "values": [
+            {
+              "field1": "existing_url",
+              "field2": "url"
+            }
+          ]
+        },
+        "joinMode": "keepNonMatches",
+        "outputDataFrom": "input2",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        600,
+        240
+      ],
+      "id": "c192dc11-7afa-4587-808c-4ad96cb6bf83",
+      "name": "Merge Only New URLs",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ea28f84e-183d-4bcc-8d1f-3404339f15e9",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "a6e494dc-8c00-4583-a950-510c65468f38",
+              "leftValue": "={{ $json.source_filename }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        480
+      ],
+      "id": "3d21f6a8-0e10-4c82-803a-23c3f808b312",
+      "name": "Has new URLs?"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "redirect",
+        "redirectUrl": "http://localhost:5678/webhook/dashboard",
+        "limitWaitTime": true,
+        "resumeUnit": "minutes"
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -440
+      ],
+      "id": "7f0d6139-55ab-487e-bb58-2168beac7233",
+      "name": "Redirect to Dashboard",
+      "webhookId": "c1e1cdc2-56ed-4e63-b2b6-d05bfefb8cab",
+      "alwaysOutputData": true,
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "URL Extraction": {
+      "main": [
+        [
+          {
+            "node": "Aggregate URLs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Only New URLs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Add New URLs to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redirect to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Upload": {
+      "main": [
+        [
+          {
+            "node": "Split Uploaded URL Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over URL Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over URL Files": {
+      "main": [
+        [
+          {
+            "node": "Redirect to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "URL Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Uploaded URL Files": {
+      "main": [
+        [
+          {
+            "node": "Loop Over URL Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redirect to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate URLs": {
+      "main": [
+        [
+          {
+            "node": "Supabase RPC Check Existing URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase RPC Check Existing URLs": {
+      "main": [
+        [
+          {
+            "node": "Merge Only New URLs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Redirect to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Only New URLs": {
+      "main": [
+        [
+          {
+            "node": "Has new URLs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has new URLs?": {
+      "main": [
+        [
+          {
+            "node": "Add New URLs to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a339d16f-27f2-4ee6-a85b-eccf11c97e71",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98e897a176d6aa8f9ebfef8f0306eab4fec5c697c6120f66479530a2b348cfea"
+  },
+  "id": "qgw6F3oWQNf9fGdr",
+  "tags": [
+    {
+      "createdAt": "2025-06-25T12:02:18.722Z",
+      "updatedAt": "2025-06-25T12:02:18.722Z",
+      "id": "YfRTUk1DVse8MTCu",
+      "name": "extract"
+    },
+    {
+      "createdAt": "2025-06-25T12:02:18.735Z",
+      "updatedAt": "2025-06-25T12:02:18.735Z",
+      "id": "A36Me30IQgUxXVEh",
+      "name": "transform"
+    },
+    {
+      "createdAt": "2025-06-25T12:02:18.737Z",
+      "updatedAt": "2025-06-25T12:02:18.737Z",
+      "id": "RPfv0EouhL7wzciE",
+      "name": "load"
+    }
+  ]
+}

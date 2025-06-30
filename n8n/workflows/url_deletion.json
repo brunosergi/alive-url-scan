@@ -1,0 +1,181 @@
+{
+  "name": "url_deletion",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Deletion completed successfully\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        900,
+        -220
+      ],
+      "id": "b53ef4a9-cbd0-4fb1-9f1c-1e687b4f5207",
+      "name": "Respond Success to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": \"Failed to delete records from database\",\n  \"error\":  \"{{ $json.error ? $json.error : '' }}\",\n  \"timestamp\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        900,
+        -20
+      ],
+      "id": "ad3acc4d-ce8d-408e-927f-03f52eba05be",
+      "name": "Respond Error to Webhook"
+    },
+    {
+      "parameters": {
+        "httpMethod": "DELETE",
+        "path": "delete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        -200
+      ],
+      "id": "9d265a3f-5bb5-4d17-b062-f8aaba3455c2",
+      "name": "Deletion Webhook",
+      "webhookId": "382527dc-d6c4-4aac-bd17-1c88ee6b8c98"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/rest/v1/rpc/bulk_delete_urls",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"ids_to_delete\": {{ $json.ids_to_delete.toJsonString() }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        640,
+        -200
+      ],
+      "id": "3c72ba47-dac1-46fd-aab5-5a3294d1141c",
+      "name": "Supabase RPC Bulk Delete URLs",
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "babce704-2054-4691-9fc5-4fe2d5ee6666",
+              "name": "ids_to_delete",
+              "value": "={{ $json.body.items.map(item => item.id).toJsonString() }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        360,
+        -200
+      ],
+      "id": "367972eb-db95-4c44-ba1c-a20f7288ed9b",
+      "name": "IDs to Delete"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Deletion Webhook": {
+      "main": [
+        [
+          {
+            "node": "IDs to Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase RPC Bulk Delete URLs": {
+      "main": [
+        [
+          {
+            "node": "Respond Success to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IDs to Delete": {
+      "main": [
+        [
+          {
+            "node": "Supabase RPC Bulk Delete URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "27da51af-11af-4502-87d6-20eb1e2a5ad8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98e897a176d6aa8f9ebfef8f0306eab4fec5c697c6120f66479530a2b348cfea"
+  },
+  "id": "NHRVoSWQCXQVQu4I",
+  "tags": [
+    {
+      "createdAt": "2025-06-26T17:28:55.169Z",
+      "updatedAt": "2025-06-26T17:28:55.169Z",
+      "id": "wnXDMxO624bpALjE",
+      "name": "delete"
+    },
+    {
+      "createdAt": "2025-06-26T17:28:56.442Z",
+      "updatedAt": "2025-06-26T17:28:56.442Z",
+      "id": "be3XS5rZhnIZrmiK",
+      "name": "crud"
+    }
+  ]
+}

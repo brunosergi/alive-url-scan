@@ -1,0 +1,545 @@
+{
+  "name": "url_scanning_playwright",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('URL Scan').item.json.url }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an AI assistant for a security analyst, specializing in comprehensive webpage analysis. You will be given a URL to investigate.\n\nUse the Playwright MCP Tool to perform a lookup on the user-provided URL. Your tasks are to navigate to the URL, take a screenshot, and provide a detailed analytical summary of the webpage.\n\n**Follow these steps precisely:**\n\n1.  Use the `browser_navigate` tool to go to the URL.\n\n2.  Generate a formatted screenshot filename based on the domain by following these rules:\n    - Remove the schema ('http://' or 'https://').\n    - Remove any path, directory, endpoint, or parameters after the domain.\n    - Replace all dots ('.') in the domain with hyphens ('-').\n    - Add the this identifier \"{{ $('URL Scan').item.json.id }}\" at the beginning.\n    - Append the '.jpeg' extension.\n    - So, `{{ $('URL Scan').item.json.url }}` should become `{{ $('URL Scan').item.json.screenshot_name }}`\n\n3.  **MANDATORY**: Use the `browser_take_screenshot` tool from the Playwright MCP to capture a full viewport screenshot of the `{{ $('URL Scan').item.json.url }}` current webpage with the following parameters:\n    - `filename`: Use the exact filename `{{ $('URL Scan').item.json.screenshot_name }}`\n    - `raw`: Set to false (default) to get JPEG format\n    - Do NOT provide `element` or `ref` parameters to capture the full viewport\n    This will take a viewport screenshot of the current page and save it with your generated filename. This step is critical and cannot be skipped.\nThis step is required and cannot be skipped!\n\n4.  Analyze the webpage comprehensively and write a detailed, analytical summary (**MUST be under 500 characters**). Your summary **must** address the following points where applicable:\n\n    **GENERAL PAGE INFORMATION:**\n    *   **Website Purpose & Content:** Describe what the website is about, its main purpose, and primary content/services offered.\n    *   **Company/Organization:** Identify the company, organization, or entity behind the website, including any visible branding or corporate information.\n    *   **Industry/Sector:** Determine the business sector or industry (e.g., e-commerce, financial services, technology, healthcare, government, personal blog, etc.).\n    *   **Geographic Presence:** Note any location information, language, currency, or regional indicators.\n    *   **Website Functionality:** Describe key features, navigation structure, and user interactions available.\n\n    **TECHNICAL & DESIGN ANALYSIS:**\n    *   **Design Quality:** Assess the overall design professionalism, layout, visual appeal, and user experience.\n    *   **Visible Technology:** List any obvious technology stack in use (e.g., WordPress, Shopify, React, Angular, specific CMS platforms).\n    *   **Content Quality:** Evaluate text quality, grammar, spelling, and overall content professionalism.\n    *   **Contact Information:** Note presence/absence of contact details (address, phone, email, support channels).\n\n    **SECURITY & TRUST ASSESSMENT:**\n    *   **Site Legitimacy & Trust Signals:** Note SSL/TLS usage, professional design, privacy policies, terms of service, and trust badges.\n    *   **Potential Threats:** Identify suspicious elements like urgent or threatening language (\"act now,\" \"account suspended\"), requests for credentials, or unusual redirects.\n    *   **Brand Impersonation:** Assess if any brand logos, company names, or official-looking elements appear to be part of a brand impersonation attempt.\n    *   **Forms & Data Collection:** Document any login forms, payment forms, contact forms, or other data collection mechanisms.\n    *   **Page Interruption:** Mention if the page is blocked by services like Cloudflare, CAPTCHAs, or browser-based warnings.\n\n    **OVERALL ASSESSMENT:**\n    *   **Legitimacy Score:** Rate the site's apparent legitimacy (High/Medium/Low) with brief reasoning.\n    *   **Risk Level:** Assess potential security risk (Low/Medium/High) based on observed indicators.\n    *   **Business Classification:** Categorize the type of website (Corporate, E-commerce, Personal, Government, Educational, Suspicious, etc.).\n\n**Return a single JSON object with ONLY the following keys:**\n\n- `screenshot_name`: The generated `{{ $('URL Scan').item.json.screenshot_name }}` filename for the screenshot.\n- `agent_summary`: A brief, comprehensive analytical summary of the webpage covering key findings, legitimacy, and overall assessment (under 500 characters).\n- `page_assessment`: Array of single-word tags (up to 10) combining ALL analysis aspects including:\n  - **Security tags**: phishing, legitimate, suspicious, high-risk, medium-risk, low-risk, blocked, ssl, verified\n  - **Technology tags**: wordpress, shopify, react, cloudflare, bootstrap, angular, php, nodejs\n  - **Industry tags**: financial, banking, e-commerce, retail, technology, healthcare, government, education, personal\n  - **Company tags**: amazon, microsoft, paypal, google, facebook, shopee, (any brand names)\n  - **Geographic tags**: usa, uk, global, brazil, asia, europe, local\n  - **Functionality tags**: login-form, payment-form, contact-form, newsletter, blog, forum\n  - **Content tags**: professional, amateur, spam, urgent-language, credential-request\n  Use null if no specific tags can be identified."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        240,
+        260
+      ],
+      "id": "56214cea-0c79-4dfa-a831-e2d5f2161bed",
+      "name": "AI Agent",
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "alwaysOutputData": false,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        160,
+        660
+      ],
+      "id": "2362af82-89f6-422e-a86c-a324026c92e8",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "OiX68l0G4PsiSnHZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sseEndpoint": "http://host.docker.internal:8831/sse",
+        "include": "selected",
+        "includeTools": [
+          "browser_close",
+          "browser_navigate",
+          "browser_take_screenshot",
+          "browser_snapshot",
+          "browser_wait_for",
+          "browser_network_requests",
+          "browser_navigate_back",
+          "browser_navigate_forward",
+          "browser_tab_close",
+          "browser_resize"
+        ]
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1,
+      "position": [
+        320,
+        20
+      ],
+      "id": "4dc0e67b-06fa-4ffe-9408-d9d9d5d35071",
+      "name": "Playwright MCP Client"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n    \"type\": \"object\",\n    \"properties\": {\n        \"screenshot_name\": {\n            \"type\": \"string\",\n            \"description\": \"The generated filename for the screenshot, following the specified naming convention.\"\n        },\n        \"agent_summary\": {\n            \"type\": \"string\",\n            \"description\": \"A brief, analytical summary of the webpage's content, purpose, and branding alignment. MUST be under 500 characters!\"\n        },\n        \"page_assessment\": {\n            \"type\": \"array\",\n            \"items\": {\"type\": \"string\"},\n            \"minItems\": 3,\n            \"maxItems\": 10,\n            \"uniqueItems\": true,\n            \"description\": \"Comprehensive tag array combining all analysis aspects: security, technology, industry, company, geographic, and risk indicators. Use single keywords/phrases (e.g., ['phishing', 'credential-harvesting', 'cloudflare', 'financial', 'banking', 'high-risk', 'usa', 'ssl', 'legitimate', 'e-commerce']). Use null if no specific tags can be identified.\"\n        }\n    },\n    \"example\": {\n        \"screenshot_name\": \"0fcb83ff-c2c2-4292-8c27-32441584f7b7-mybank-com.jpeg\",\n        \"agent_summary\": \"Professional consortium management portal offering installment updates and contract revision services. Features About Us section emphasizing personalized service. Appears legitimate business website.\",\n        \"page_assessment\": [\"phishing\", \"credential-harvesting\", \"cloudflare\", \"financial\", \"banking\", \"high-risk\", \"impersonation\", \"blocked\", \"mybank\"]\n    },\n    \"required\": [\n        \"screenshot_name\",\n        \"agent_summary\",\n        \"page_assessment\"\n    ]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        320,
+        460
+      ],
+      "id": "7273b1a6-9b9c-43fe-9b33-7ebf27a7a2de",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8000/storage/v1/object/screenshots/url_scan/{{ $('URL Scan').item.json.screenshot_name }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/jpeg"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "screenshot",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        0
+      ],
+      "id": "1245a65c-71c9-442e-8953-480710a0bf40",
+      "name": "Add Screenshot File to Supabase Bucket",
+      "retryOnFail": false,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/screenshots/{{ $('URL Scan').item.json.screenshot_name }}",
+        "options": {
+          "dataPropertyName": "screenshot"
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        700,
+        0
+      ],
+      "id": "998996ed-dc6a-4041-b2b5-2953db62fe4e",
+      "name": "Get Screenshot Local File",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "command": "=rm -f /screenshots/{{ $('URL Scan').item.json.screenshot_name }}"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        260
+      ],
+      "id": "2551bf21-cbee-44fb-9658-7c606c0a7344",
+      "name": "Delete Screenshot Local File"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "id"
+            },
+            {
+              "name": "url"
+            },
+            {
+              "name": "screenshot_name"
+            },
+            {
+              "name": "status_code",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "id": "2e82282a-6b8c-42e9-9cbd-1bc4d5f022ab",
+      "typeVersion": 1.1,
+      "name": "URL Scan",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "url_scan",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('URL Scan').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_scan_time",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "agent_summary",
+              "fieldValue": "=AI agent tried to obtain data, but an error occurred. {{ $json.error ? $json.error : '' }}"
+            },
+            {
+              "fieldId": "status_code",
+              "fieldValue": "={{ $('URL Scan').item.json.status_code ? $('URL Scan').item.json.status_code : '' }}"
+            },
+            {
+              "fieldId": "scan_status",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        260
+      ],
+      "id": "b3b73391-5da3-455d-993e-47e9d1893733",
+      "name": "Update as AI Scan Error",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "url_scan",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('URL Scan').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "screenshot_url",
+              "fieldValue": "=http://host.docker.internal:8000/storage/v1/object/screenshots/url_scan/{{ $('URL Scan').item.json.screenshot_name }}"
+            },
+            {
+              "fieldId": "agent_summary",
+              "fieldValue": "={{ $('AI Agent').item.json.output.agent_summary }}"
+            },
+            {
+              "fieldId": "scan_status",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "last_scan_time",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "status_code",
+              "fieldValue": "={{ $('URL Scan').item.json.status_code }}"
+            },
+            {
+              "fieldId": "page_assessment",
+              "fieldValue": "={{ $('AI Agent').item.json.output.page_assessment }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        0
+      ],
+      "id": "7d6ca4f3-f5a9-48d6-8824-e884ed0577d0",
+      "name": "Update as AI Scan Success",
+      "credentials": {
+        "supabaseApi": {
+          "id": "tb6SHmmulRLonjU8",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        260
+      ],
+      "id": "641b3da5-7afb-442a-832f-21353b301c09",
+      "name": "Rate Limit",
+      "webhookId": "0865448d-f989-4a20-b2dc-3cb611cbe9c2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        480,
+        660
+      ],
+      "id": "57a47621-b250-4eb8-985f-50a0836aaee7",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "0c55mC80j8FzBm3R",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "### ➕ Add",
+        "width": 260,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        60,
+        640
+      ],
+      "typeVersion": 1,
+      "id": "6eef4178-074f-43f8-be2a-0528b14ae28a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "### ➖ Remove",
+        "width": 260,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        360,
+        640
+      ],
+      "typeVersion": 1,
+      "id": "05dc8590-377e-4b77-90af-26f5c8601644",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Get Screenshot Local File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update as AI Scan Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playwright MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Screenshot File to Supabase Bucket": {
+      "main": [
+        [
+          {
+            "node": "Update as AI Scan Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update as AI Scan Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Screenshot Local File": {
+      "main": [
+        [
+          {
+            "node": "Add Screenshot File to Supabase Bucket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update as AI Scan Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "URL Scan": {
+      "main": [
+        [
+          {
+            "node": "Rate Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update as AI Scan Success": {
+      "main": [
+        [
+          {
+            "node": "Delete Screenshot Local File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update as AI Scan Error": {
+      "main": [
+        [
+          {
+            "node": "Delete Screenshot Local File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate Limit": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9ccfbddb-ca20-4294-8bb8-13d6c223573a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98e897a176d6aa8f9ebfef8f0306eab4fec5c697c6120f66479530a2b348cfea"
+  },
+  "id": "WBIT20AwFdpylPXR",
+  "tags": [
+    {
+      "createdAt": "2025-06-25T11:41:59.582Z",
+      "updatedAt": "2025-06-25T11:41:59.582Z",
+      "id": "cL0RNTAhh7XeKzAW",
+      "name": "screenshot"
+    },
+    {
+      "createdAt": "2025-06-25T11:41:59.596Z",
+      "updatedAt": "2025-06-25T11:41:59.596Z",
+      "id": "dfLWbsHwZELAzt3w",
+      "name": "scraping"
+    },
+    {
+      "createdAt": "2025-06-25T11:41:59.621Z",
+      "updatedAt": "2025-06-25T11:41:59.621Z",
+      "id": "7M3ibLVb80W2IJxO",
+      "name": "playwright"
+    }
+  ]
+}
