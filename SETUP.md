@@ -219,6 +219,40 @@ You can do the same with any other LLM provider like Claude Anthropic, Ollama, D
 
 ## 🔧 Troubleshooting
 
+### Manual Browser Control (Advanced)
+
+Need to manually control Chromium for debugging, setting cookies, or troubleshooting authentication issues?
+
+**Method 1: Directly in VNC (Easiest)**
+1. Access VNC at **http://localhost:6080**
+2. Press **Alt+F2** to open the "Run program" dialog
+3. Enter: `chromium`
+4. Press Enter - Chromium will launch immediately
+
+**Method 2: Via Container Terminal**
+```bash
+# Connect to the Playwright container
+docker exec -it alive-url-scan-playwright bash
+
+# Launch Chromium manually in VNC
+chromium &
+```
+
+**Legacy Method (Still Works):**
+```bash
+# Full command if needed
+export DISPLAY=:99
+/ms-playwright/chromium-*/chrome-linux/chrome --no-sandbox --disable-dev-shm-usage
+```
+
+Perfect for:
+- Setting up authentication cookies
+- Debugging website interactions
+- Manual verification of scan results
+- Troubleshooting complex login flows
+
+**VNC Clipboard:** Use the VNC viewer's clipboard feature to copy/paste between your host machine and the VNC browser session.
+
 ### Common Issues
 
 **Services not starting:**

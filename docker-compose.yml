@@ -211,7 +211,7 @@ services:
   #                       PLAYWRIGHT MCP Service
   # -----------------------------------------------------------------
   playwright-mcp:
-    container_name: darkweb-forums-tracker-playwright
+    container_name: alive-url-scan-playwright
     build: { context: ./playwright-mcp }
     restart: unless-stopped
     ports: 
