@@ -122,8 +122,9 @@ Access the main interface: **http://localhost:5678/webhook/dashboard**
 **Basic Workflow:**
 1. **Upload URLs** - Click "Upload URLs" and drop files containing URLs
 2. **Select URLs** - Check boxes for URLs you want to analyze  
-3. **Scan** - Click "Scan Selected" to trigger AI analysis
-4. **Review Results** - See summaries, tags, and screenshots appear in real-time
+3. **Watch Live** - Open http://localhost:6080 in another tab to see the browser automation
+4. **Scan** - Click "Scan Selected" to trigger AI analysis
+5. **Review Results** - See summaries, tags, and screenshots appear in real-time
 
 ---
 
@@ -211,6 +212,8 @@ You can do the same with any other LLM provider like Claude Anthropic, Ollama, D
 | **n8n Editor** | http://localhost:5678 | Workflow management |
 | **Supabase Studio** | http://localhost:3000 | Database management |
 | **Playwright MCP** | http://localhost:8831/sse | Web automation service |
+| **VNC Browser View** | http://localhost:6080 | Watch browser automation in real-time |
+| **VNC Direct** | localhost:5900 | VNC client connection |
 
 ---
 

@@ -211,10 +211,13 @@ services:
   #                       PLAYWRIGHT MCP Service
   # -----------------------------------------------------------------
   playwright-mcp:
-    container_name: alive-url-scan-playwright
+    container_name: darkweb-forums-tracker-playwright
     build: { context: ./playwright-mcp }
     restart: unless-stopped
-    ports: ["${PLAYWRIGHT_MCP_PORT:-8831}:8831"]
+    ports: 
+      - "${PLAYWRIGHT_MCP_PORT:-8831}:8831"
+      - "5900:5900"  # VNC port for browser GUI access
+      - "6080:6080"  # noVNC web interface
     environment:
       # Core configuration (user-defined in .env)
       - PLAYWRIGHT_MCP_PORT=${PLAYWRIGHT_MCP_PORT:-8831}

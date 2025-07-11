@@ -4,9 +4,13 @@
 
 Tired of manually checking suspicious URLs from phishing feeds? I created this automation tool that combines **n8n workflows**, **AI analysis**, and **automated screenshots** to do the heavy lifting for you. It's a personal project for my portfolio, but I hope it helps other cybersecurity folks speed up their URL analysis workflows.
 
-<img src="images/dashboard.jpeg" alt="Dashboard Screenshot" width="700">
+<div align="center">
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://docker.com) [![AI](https://img.shields.io/badge/AI-Google_Gemini-FF6B35)](https://ai.google.dev) [![n8n](https://img.shields.io/badge/Automation-n8n-FF6D5A)](https://n8n.io) [![Supabase](https://img.shields.io/badge/Backend-Supabase-3ECF8E)](https://supabase.com) [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+<img src="images/dashboard.jpeg" alt="Dashboard Screenshot" width="800">
+
+</div>
 
 ## 🎯 The Problem I'm Solving
 
@@ -62,13 +66,14 @@ docker compose up -d
 - **🎛️ n8n Workflow Editor**: http://localhost:5678
 - **📊 Dashboard Interface**: http://localhost:5678/webhook/dashboard  
 - **🗄️ Supabase**: http://localhost:8000
+- **🖥️ Test VNC**: http://localhost:6080 - Watch browser automation in real-time via VNC
 
 ## 🛠️ What's Under the Hood
 
 ### Core Tools
 - **[n8n](https://n8n.io)** - Visual workflows that connect everything together
 - **[Supabase](https://supabase.com)** - Backend PostgreSQL database with real-time updates
-- **[Playwright MCP](https://github.com/microsoft/playwright-mcp)** - AI-powered Web automation
+- **[Playwright MCP](https://github.com/microsoft/playwright-mcp)** - Playwright MCP Server for AI-controlled browser automation with VNC access
 - **[Docker](https://docker.com)** - Everything runs in containers
 
 ### AI Stuff  
@@ -80,6 +85,7 @@ docker compose up -d
 
 1. **📥 Upload URLs** - Drop files with URLs (can be raw files, the app automatically cleans and extracts only URLs)
 2. **🤖 AI Analysis** - Gemini uses Playwright MCP to looks at each URL and figures out what's going on, then grabs a picture for evidence
+3. **🖥️ Watch Live** - The VNC interface runs a full Chrome browser where you can see exactly what the AI agent sees
 4. **💾 Store Results** - Everything gets saved to the database with metadata
 5. **📊 View Dashboard** - See results in real-time as they complete
 6. **📤 Export Data** - Download as CSV, JSON, or whatever format you need
